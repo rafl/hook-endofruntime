@@ -55,7 +55,7 @@ mybhk_post_end (pTHX_ OP **o)
 {
   hook_t *h, *p = NULL;
 
-  for (h = hooks; h; p = h, h = h ? h->next : NULL) {
+  for (h = hooks; h; p = h, h = h->next) {
     if (h->level > 0) {
       h->level--;
 
