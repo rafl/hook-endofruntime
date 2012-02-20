@@ -79,25 +79,24 @@ mybhk_post_end (pTHX_ OP **o)
   for (h = hooks; h;) {
     hook_t *next_h = h->next;
 
-    if (h->level > 0) {
+    if (h->level > 0)
       h->level--;
 
-      if (h->level == 0) {
-        SV *cb = cb = h->cb;
+    if (h->level == 0) {
+      SV *cb = cb = h->cb;
 
-        if (h->prev) {
-          h->prev->next = h->next;
-          h->next->prev = h->prev;
-        }
-        else {
-          hooks = h->next;
-          if (hooks)
-            hooks->prev = NULL;
-        }
-        free(h);
-
-        *o = op_prepend_elem(OP_LINESEQ, gen_initop(aTHX_ cb), *o);
+      if (h->prev) {
+        h->prev->next = h->next;
+        h->next->prev = h->prev;
       }
+      else {
+        hooks = h->next;
+        if (hooks)
+          hooks->prev = NULL;
+      }
+      free(h);
+
+      *o = op_prepend_elem(OP_LINESEQ, gen_initop(aTHX_ cb), *o);
     }
 
     h = next_h;
