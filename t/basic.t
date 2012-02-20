@@ -49,7 +49,7 @@ use Hook::EndOfRuntime;
                 BEGIN { after_runtime 1, sub { $i++ } };
                 # with this, the test in the do starts passing. probably
                 # appending to the wrong bit of the op tree
-                # is $i, 0;
+                is $i, 0;
                 die $e;
             };
 
@@ -68,13 +68,15 @@ use Hook::EndOfRuntime;
     {
         {
             BEGIN { after_runtime 2, sub { $i++ } };
+            BEGIN { after_runtime 1, sub { $i++ } };
+            BEGIN { after_runtime 2, sub { $i++ } };
             is $i, 0;
         }
 
-        is $i, 0;
+        is $i, 1;
     }
 
-    is $i, 1;
+    is $i, 3;
 }
 
 done_testing;
