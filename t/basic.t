@@ -9,7 +9,7 @@ use Hook::EndOfRuntime;
     my $i = 0;
 
     is do {
-        after_runtime 1, Scope::Guard->new(sub { $i++ });
+        BEGIN { after_runtime 1, sub { $i++ } };
         is $i, 0;
         23;
     }, 23;
@@ -25,7 +25,7 @@ use Hook::EndOfRuntime;
         my $e = \42;
         is do {
             eval {
-                after_runtime 1, Scope::Guard->new(sub { $i++ });
+                BEGIN { after_runtime 1, sub { $i++ } };
                 is $i, 0;
                 die $e;
             };
@@ -46,7 +46,7 @@ use Hook::EndOfRuntime;
         my $e = \42;
         is do {
             eval {
-                after_runtime 1, Scope::Guard->new(sub { $i++ });
+                BEGIN { after_runtime 1, sub { $i++ } };
                 # with this, the test in the do starts passing. probably
                 # appending to the wrong bit of the op tree
                 # is $i, 0;
@@ -67,7 +67,7 @@ use Hook::EndOfRuntime;
 
     {
         {
-            after_runtime 2, Scope::Guard->new(sub { $i++ });
+            BEGIN { after_runtime 2, sub { $i++ } };
             is $i, 0;
         }
 

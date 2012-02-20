@@ -43,11 +43,12 @@ pad_add_my_scalar_pvn (pTHX_ const char *namepv, STRLEN namelen)
 typedef struct hook_St {
   UV level;
   CV *cb;
-  OP *op;
   struct hook_St *next;
 } hook_t;
 
 static hook_t *hooks = NULL;
+
+static SV *make_guard;
 
 static void
 mybhk_post_end (pTHX_ OP **o)
@@ -60,11 +61,13 @@ mybhk_post_end (pTHX_ OP **o)
 
       if (h->level == 0) {
         OP *pvarop;
+        SV *cb;
 
         pvarop = newOP(OP_PADSV, (OPpLVAL_INTRO << 8));
         pvarop->op_targ = pad_add_my_scalar_pvn(aTHX_ STR_WITH_LEN("$moo::kooh"));
 
-        h->op->op_targ = pvarop->op_targ;
+        //h->op->op_targ = pvarop->op_targ;
+        cb = h->cb;
 
         if (p)
           p->next = h->next;
@@ -85,7 +88,10 @@ mybhk_post_end (pTHX_ OP **o)
 
         *o = op_prepend_elem(OP_LINESEQ,
                              newASSIGNOP(OPf_STACKED, pvarop, 0,
-                                         newSVOP(OP_CONST, 0, newSVpvs("foo"))),
+                                         newUNOP(OP_ENTERSUB, OPf_STACKED,
+                                                 op_append_elem(OP_LIST,
+                                                                newSVOP(OP_CONST, 0, cb),
+                                                                newCVREF(0, newSVOP(OP_CONST, 0, SvREFCNT_inc(make_guard)))))),
                              *o);
       }
     }
@@ -108,6 +114,7 @@ mybhk_start (pTHX_ int full)
 
 static BHK bhk_hooks;
 
+/*
 static OP *
 configure_hook (pTHX)
 {
@@ -171,22 +178,23 @@ myck_entersub_foo (pTHX_ OP *entersubop, GV *namegv, SV *protosv)
   return hookop;
 }
 
+*/
+
 MODULE = Hook::EndOfRuntime  PACKAGE = Hook::EndOfRuntime
 
 void
-after_runtime (...)
+after_runtime (UV level, SV *cb)
+  PREINIT:
+    hook_t *hook;
   CODE:
-    PERL_UNUSED_VAR(items);
-    croak("called as function");
+    hook = malloc(sizeof(hook_t));
+    hook->level = level;
+    hook->cb = newSVsv(cb);
+    hook->next = hooks;
+    hooks = hook;
 
 BOOT:
-{
-  CV *foo_cv;
-
-  foo_cv = get_cv("Hook::EndOfRuntime::after_runtime", 0);
-  cv_set_call_checker(foo_cv, myck_entersub_foo, (SV *)foo_cv);
-
+  make_guard = newRV_inc(get_cv("Hook::EndOfRuntime::_make_guard", 0));
   BhkENTRY_set(&bhk_hooks, bhk_post_end, mybhk_post_end);
   BhkENTRY_set(&bhk_hooks, bhk_start, mybhk_start);
   Perl_blockhook_register(aTHX_ &bhk_hooks);
-}
