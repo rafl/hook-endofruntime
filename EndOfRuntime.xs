@@ -111,8 +111,7 @@ mybhk_start (pTHX_ int full)
     return;
 
   for (h = hooks; h; h = h->next)
-    if (h->level > 0)
-      h->level++;
+    h->level++;
 }
 
 static BHK bhk_hooks;
