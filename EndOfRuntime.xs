@@ -74,10 +74,8 @@ mybhk_post_end (pTHX_ OP **o)
 
         if (p)
           p->next = h->next;
-        else {
+        else
           hooks = h->next;
-          h = hooks;
-        }
         free(h);
 
         *o = op_prepend_elem(OP_LINESEQ,
