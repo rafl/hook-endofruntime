@@ -2,63 +2,47 @@
 #include "perl.h"
 #include "XSUB.h"
 
-#define SVt_PADNAME SVt_PVMG
-
-#ifndef COP_SEQ_RANGE_LOW_set
-# define COP_SEQ_RANGE_LOW_set(sv,val) \
-  do { ((XPVNV *)SvANY(sv))->xnv_u.xpad_cop_seq.xlow = val; } while (0)
-# define COP_SEQ_RANGE_HIGH_set(sv,val) \
-  do { ((XPVNV *)SvANY(sv))->xnv_u.xpad_cop_seq.xhigh = val; } while (0)
-#endif
-
-#ifndef PERL_PADSEQ_INTRO
-# define PERL_PADSEQ_INTRO I32_MAX
-#endif
-
-static PADOFFSET
-pad_add_my_scalar_pvn (pTHX_ const char *namepv, STRLEN namelen)
+static void
+run_hook (pTHX_ SV *hook)
 {
-  PADOFFSET offset;
-  SV *namesv, *myvar;
+  dSP;
 
-  myvar = *av_fetch(PL_comppad, AvFILLp(PL_comppad) + 1, 1);
-  offset = AvFILLp(PL_comppad);
-  SvPADMY_on(myvar);
+  ENTER;
+  SAVETMPS;
 
-  PL_curpad = AvARRAY(PL_comppad);
-  namesv = newSV_type(SVt_PADNAME);
-  sv_setpvn(namesv, namepv, namelen);
+  PUSHMARK(SP);
+  call_sv(hook, G_VOID|G_DISCARD);
 
-  COP_SEQ_RANGE_LOW_set(namesv, PL_cop_seqmax);
-  COP_SEQ_RANGE_HIGH_set(namesv, PERL_PADSEQ_INTRO);
-  PL_cop_seqmax++;
+  FREETMPS;
+  LEAVE;
+}
 
-  av_store(PL_comppad_name, offset, namesv);
+static OP *
+register_hook (pTHX)
+{
+  dSP;
+  SV *hook;
 
-  return offset;
+  hook = newSVsv(POPs);
 
+  SAVEFREESV(hook);
+  SAVEDESTRUCTOR_X(run_hook, hook);
+
+  if (GIMME_V != G_VOID)
+    PUSHs(&PL_sv_undef);
+
+  RETURN;
 }
 
 static OP *
 gen_initop (pTHX_ SV *cb)
 {
-  OP *pvarop, *argop;
+  OP *register_hook_op;
 
-  /* No need to give the lexicals for multiple hooks in one scope different
-     names. We create them all with _INTRO and always add new entries to the
-     pad. That causes them to be different slots even if the names are the
-     same. */
-  pvarop = newOP(OP_PADSV, (OPpLVAL_INTRO << 8));
-  pvarop->op_targ = pad_add_my_scalar_pvn(aTHX_ STR_WITH_LEN("$Hooks::EndOfRuntime::hook"));
+  register_hook_op = newUNOP(OP_RAND, 0, newSVOP(OP_CONST, 0, cb));
+  register_hook_op->op_ppaddr = register_hook;
 
-  argop = op_append_elem(OP_LIST,
-                         newSVOP(OP_CONST, 0, newSVpvs("Scope::Guard")),
-                         newSVOP(OP_CONST, 0, cb));
-  argop = op_append_elem(OP_LIST, argop,
-                         newSVOP(OP_METHOD_NAMED, 0, newSVpvs("new")));
-
-  return newASSIGNOP(OPf_STACKED, pvarop, 0,
-                     Perl_convert(aTHX_ OP_ENTERSUB, OPf_STACKED, argop));
+  return register_hook_op;
 }
 
 typedef struct hook_St {

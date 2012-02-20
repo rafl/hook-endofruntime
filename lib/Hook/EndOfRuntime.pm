@@ -12,6 +12,4 @@ use Sub::Exporter -setup => {
     groups  => { default => ['after_runtime'] },
 };
 
-use Scope::Guard;
-
 1;
