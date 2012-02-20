@@ -63,8 +63,12 @@ mybhk_post_end (pTHX_ OP **o)
         OP *pvarop;
         SV *cb;
 
+        /* No need to give the lexicals for multiple hooks in one scope
+           different names. We create them all with _INTRO and always add new
+           entries to the pad. That causes them to be different slots even if
+           the names are the same. */
         pvarop = newOP(OP_PADSV, (OPpLVAL_INTRO << 8));
-        pvarop->op_targ = pad_add_my_scalar_pvn(aTHX_ STR_WITH_LEN("$moo::kooh"));
+        pvarop->op_targ = pad_add_my_scalar_pvn(aTHX_ STR_WITH_LEN("$Hooks::EndOfRuntime::hook"));
 
         cb = h->cb;
 
