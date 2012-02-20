@@ -1,6 +1,5 @@
 #include "EXTERN.h"
 #include "perl.h"
-#include "callchecker0.h"
 #include "XSUB.h"
 
 #define SVt_PADNAME SVt_PVMG
