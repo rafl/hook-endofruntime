@@ -90,4 +90,16 @@ for my $n (1, 0) {
     is $i, $n;
 }
 
+for my $n (1, 0) {
+    our $i = 0;
+
+    is do {
+        BEGIN { after_runtime 1, sub { $i++ } };
+        is $i, 0;
+        23;
+    }, 23;
+
+    is $i, 1;
+}
+
 done_testing;
