@@ -66,7 +66,6 @@ mybhk_post_end (pTHX_ OP **o)
         pvarop = newOP(OP_PADSV, (OPpLVAL_INTRO << 8));
         pvarop->op_targ = pad_add_my_scalar_pvn(aTHX_ STR_WITH_LEN("$moo::kooh"));
 
-        //h->op->op_targ = pvarop->op_targ;
         cb = h->cb;
 
         if (p)
@@ -76,15 +75,6 @@ mybhk_post_end (pTHX_ OP **o)
           h = hooks;
         }
         free(h);
-
-        //pvarop->op_ppaddr = my_padsv;
-
-        /*
-        hook = newOP(OP_RAND, 0);
-        hook->op_ppaddr = invoke_cb;
-        hook->op_first = h;
-        *o = op_prepend_elem(OP_LINESEQ, *o, hook);
-        */
 
         *o = op_prepend_elem(OP_LINESEQ,
                              newASSIGNOP(OPf_STACKED, pvarop, 0,
@@ -113,72 +103,6 @@ mybhk_start (pTHX_ int full)
 }
 
 static BHK bhk_hooks;
-
-/*
-static OP *
-configure_hook (pTHX)
-{
-  dSP;
-  dMARK;
-  dTARGET;
-
-  sv_setsv(TARG, POPs);
-
-  SP = MARK;
-  if (GIMME_V == G_SCALAR)
-    XPUSHs(&PL_sv_undef);
-
-  RETURN;
-}
-
-static OP *
-myck_entersub_foo (pTHX_ OP *entersubop, GV *namegv, SV *protosv)
-{
-  hook_t *hook;
-  OP *hookop, *svop;
-  OP *listop, *lastop, *rv2cvop;
-
-  PERL_UNUSED_ARG(namegv);
-  PERL_UNUSED_ARG(protosv);
-
-  entersubop = ck_entersub_args_list(entersubop);
-  listop = cUNOPx(entersubop)->op_first;
-  if (!listop)
-    croak("fail");
-
-  entersubop->op_flags &= ~OPf_KIDS;
-  cUNOPx(entersubop)->op_first = NULL;
-  op_free(entersubop);
-
-  lastop = cLISTOPx(listop)->op_first;
-  while (lastop->op_sibling != cLISTOPx(listop)->op_last)
-    lastop = lastop->op_sibling;
-  rv2cvop = lastop->op_sibling;
-
-  lastop->op_sibling = NULL;
-  cLISTOPx(listop)->op_last = lastop;
-  op_free(rv2cvop);
-
-  NewOpSz(0, hookop, sizeof(UNOP));
-  hookop->op_type = OP_RAND;
-  hookop->op_ppaddr = configure_hook;
-  cUNOPx(hookop)->op_flags = OPf_KIDS;
-  cUNOPx(hookop)->op_first = listop;
-
-  svop = cLISTOPx(listop)->op_first->op_sibling;
-  if (svop->op_type != OP_CONST)
-    croak("not const");
-
-  hook = malloc(sizeof(hook_t));
-  hook->level = SvUV(cSVOPx(svop)->op_sv);
-  hook->next = hooks;
-  hook->op = hookop;
-  hooks = hook;
-
-  return hookop;
-}
-
-*/
 
 MODULE = Hook::EndOfRuntime  PACKAGE = Hook::EndOfRuntime
 
