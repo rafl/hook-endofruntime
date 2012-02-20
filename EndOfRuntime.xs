@@ -35,7 +35,7 @@ register_hook (pTHX)
 }
 
 static OP *
-gen_initop (pTHX_ SV *cb)
+gen_register_hook_op (pTHX_ SV *cb)
 {
   OP *register_hook_op;
 
@@ -79,7 +79,7 @@ mybhk_post_end (pTHX_ OP **o)
       }
       free(h);
 
-      *o = op_prepend_elem(OP_LINESEQ, gen_initop(aTHX_ cb), *o);
+      *o = op_prepend_elem(OP_LINESEQ, gen_register_hook_op(aTHX_ cb), *o);
     }
 
     h = next_h;
