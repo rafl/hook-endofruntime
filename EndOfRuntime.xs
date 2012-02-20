@@ -49,8 +49,6 @@ typedef struct hook_St {
 
 static hook_t *hooks = NULL;
 
-static SV *make_guard;
-
 static void
 mybhk_post_end (pTHX_ OP **o)
 {
@@ -63,7 +61,7 @@ mybhk_post_end (pTHX_ OP **o)
       h->level--;
 
       if (h->level == 0) {
-        OP *pvarop;
+        OP *pvarop, *initop, *argop;
         SV *cb;
 
         /* No need to give the lexicals for multiple hooks in one scope
@@ -84,16 +82,17 @@ mybhk_post_end (pTHX_ OP **o)
           if (hooks)
             hooks->prev = NULL;
         }
-
         free(h);
 
-        *o = op_prepend_elem(OP_LINESEQ,
-                             newASSIGNOP(OPf_STACKED, pvarop, 0,
-                                         newUNOP(OP_ENTERSUB, OPf_STACKED,
-                                                 op_append_elem(OP_LIST,
-                                                                newSVOP(OP_CONST, 0, cb),
-                                                                newCVREF(0, newSVOP(OP_CONST, 0, SvREFCNT_inc(make_guard)))))),
-                             *o);
+        argop = op_append_elem(OP_LIST,
+                               newSVOP(OP_CONST, 0, newSVpvs("Scope::Guard")),
+                               newSVOP(OP_CONST, 0, cb));
+        argop = op_append_elem(OP_LIST, argop,
+                               newSVOP(OP_METHOD_NAMED, 0, newSVpvs("new")));
+        initop = newASSIGNOP(OPf_STACKED, pvarop, 0,
+                             Perl_convert(aTHX_ OP_ENTERSUB, OPf_STACKED, argop));
+
+        *o = op_prepend_elem(OP_LINESEQ, initop, *o);
       }
     }
 
@@ -134,7 +133,6 @@ after_runtime (UV level, SV *cb)
     hooks = hook;
 
 BOOT:
-  make_guard = newRV_inc((SV *)get_cv("Hook::EndOfRuntime::_make_guard", 0));
   BhkENTRY_set(&bhk_hooks, bhk_post_end, mybhk_post_end);
   BhkENTRY_set(&bhk_hooks, bhk_start, mybhk_start);
   Perl_blockhook_register(aTHX_ &bhk_hooks);

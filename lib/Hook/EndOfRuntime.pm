@@ -14,8 +14,4 @@ use Sub::Exporter -setup => {
 
 use Scope::Guard;
 
-sub _make_guard {
-    return Scope::Guard->new($_[0]);
-}
-
 1;
