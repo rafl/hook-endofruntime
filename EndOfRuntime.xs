@@ -42,7 +42,7 @@ pad_add_my_scalar_pvn (pTHX_ const char *namepv, STRLEN namelen)
 
 typedef struct hook_St {
   UV level;
-  CV *cb;
+  SV *cb;
   struct hook_St *next;
 } hook_t;
 
@@ -120,7 +120,7 @@ after_runtime (UV level, SV *cb)
     hooks = hook;
 
 BOOT:
-  make_guard = newRV_inc(get_cv("Hook::EndOfRuntime::_make_guard", 0));
+  make_guard = newRV_inc((SV *)get_cv("Hook::EndOfRuntime::_make_guard", 0));
   BhkENTRY_set(&bhk_hooks, bhk_post_end, mybhk_post_end);
   BhkENTRY_set(&bhk_hooks, bhk_start, mybhk_start);
   Perl_blockhook_register(aTHX_ &bhk_hooks);
