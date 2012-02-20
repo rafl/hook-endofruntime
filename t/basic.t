@@ -78,4 +78,16 @@ use Hook::EndOfRuntime;
     is $i, 3;
 }
 
+for my $n (1, 0) {
+    my $i = 0;
+
+    is do {
+        BEGIN { after_runtime 1, sub { $i++ } };
+        is $i, 0;
+        23;
+    }, 23;
+
+    is $i, $n;
+}
+
 done_testing;
