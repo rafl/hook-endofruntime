@@ -40,6 +40,28 @@ pad_add_my_scalar_pvn (pTHX_ const char *namepv, STRLEN namelen)
 
 }
 
+static OP *
+gen_initop (pTHX_ SV *cb)
+{
+  OP *pvarop, *argop;
+
+  /* No need to give the lexicals for multiple hooks in one scope different
+     names. We create them all with _INTRO and always add new entries to the
+     pad. That causes them to be different slots even if the names are the
+     same. */
+  pvarop = newOP(OP_PADSV, (OPpLVAL_INTRO << 8));
+  pvarop->op_targ = pad_add_my_scalar_pvn(aTHX_ STR_WITH_LEN("$Hooks::EndOfRuntime::hook"));
+
+  argop = op_append_elem(OP_LIST,
+                         newSVOP(OP_CONST, 0, newSVpvs("Scope::Guard")),
+                         newSVOP(OP_CONST, 0, cb));
+  argop = op_append_elem(OP_LIST, argop,
+                         newSVOP(OP_METHOD_NAMED, 0, newSVpvs("new")));
+
+  return newASSIGNOP(OPf_STACKED, pvarop, 0,
+                     Perl_convert(aTHX_ OP_ENTERSUB, OPf_STACKED, argop));
+}
+
 typedef struct hook_St {
   UV level;
   SV *cb;
@@ -61,17 +83,7 @@ mybhk_post_end (pTHX_ OP **o)
       h->level--;
 
       if (h->level == 0) {
-        OP *pvarop, *initop, *argop;
-        SV *cb;
-
-        /* No need to give the lexicals for multiple hooks in one scope
-           different names. We create them all with _INTRO and always add new
-           entries to the pad. That causes them to be different slots even if
-           the names are the same. */
-        pvarop = newOP(OP_PADSV, (OPpLVAL_INTRO << 8));
-        pvarop->op_targ = pad_add_my_scalar_pvn(aTHX_ STR_WITH_LEN("$Hooks::EndOfRuntime::hook"));
-
-        cb = h->cb;
+        SV *cb = cb = h->cb;
 
         if (h->prev) {
           h->prev->next = h->next;
@@ -84,15 +96,7 @@ mybhk_post_end (pTHX_ OP **o)
         }
         free(h);
 
-        argop = op_append_elem(OP_LIST,
-                               newSVOP(OP_CONST, 0, newSVpvs("Scope::Guard")),
-                               newSVOP(OP_CONST, 0, cb));
-        argop = op_append_elem(OP_LIST, argop,
-                               newSVOP(OP_METHOD_NAMED, 0, newSVpvs("new")));
-        initop = newASSIGNOP(OPf_STACKED, pvarop, 0,
-                             Perl_convert(aTHX_ OP_ENTERSUB, OPf_STACKED, argop));
-
-        *o = op_prepend_elem(OP_LINESEQ, initop, *o);
+        *o = op_prepend_elem(OP_LINESEQ, gen_initop(aTHX_ cb), *o);
       }
     }
 
@@ -108,10 +112,9 @@ mybhk_start (pTHX_ int full)
   if (!full)
     return;
 
-  for (h = hooks; h; h = h->next) {
+  for (h = hooks; h; h = h->next)
     if (h->level > 0)
       h->level++;
-  }
 }
 
 static BHK bhk_hooks;
