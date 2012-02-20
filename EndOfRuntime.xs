@@ -44,6 +44,7 @@ typedef struct hook_St {
   UV level;
   SV *cb;
   struct hook_St *next;
+  struct hook_St *prev;
 } hook_t;
 
 static hook_t *hooks = NULL;
@@ -53,9 +54,11 @@ static SV *make_guard;
 static void
 mybhk_post_end (pTHX_ OP **o)
 {
-  hook_t *h, *p = NULL;
+  hook_t *h;
 
-  for (h = hooks; h; p = h, h = h->next) {
+  for (h = hooks; h;) {
+    hook_t *next_h = h->next;
+
     if (h->level > 0) {
       h->level--;
 
@@ -72,10 +75,16 @@ mybhk_post_end (pTHX_ OP **o)
 
         cb = h->cb;
 
-        if (p)
-          p->next = h->next;
-        else
+        if (h->prev) {
+          h->prev->next = h->next;
+          h->next->prev = h->prev;
+        }
+        else {
           hooks = h->next;
+          if (hooks)
+            hooks->prev = NULL;
+        }
+
         free(h);
 
         *o = op_prepend_elem(OP_LINESEQ,
@@ -87,6 +96,8 @@ mybhk_post_end (pTHX_ OP **o)
                              *o);
       }
     }
+
+    h = next_h;
   }
 }
 
@@ -116,7 +127,10 @@ after_runtime (UV level, SV *cb)
     hook = malloc(sizeof(hook_t));
     hook->level = level;
     hook->cb = newSVsv(cb);
+    hook->prev = NULL;
     hook->next = hooks;
+    if (hooks)
+      hooks->prev = hook;
     hooks = hook;
 
 BOOT:
