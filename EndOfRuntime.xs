@@ -2,6 +2,21 @@
 #include "perl.h"
 #include "XSUB.h"
 
+typedef struct hook_St {
+  UV level;
+  SV *cb;
+  struct hook_St *next;
+  struct hook_St *prev;
+} hook_t;
+
+#define MY_CXT_KEY "Hook::EndOfRuntime::_guts" XS_VERSION
+
+typedef struct {
+  hook_t *hooks;
+} my_cxt_t;
+
+START_MY_CXT;
+
 static void
 run_hook (pTHX_ SV *hook)
 {
@@ -45,21 +60,13 @@ gen_register_hook_op (pTHX_ SV *cb)
   return register_hook_op;
 }
 
-typedef struct hook_St {
-  UV level;
-  SV *cb;
-  struct hook_St *next;
-  struct hook_St *prev;
-} hook_t;
-
-static hook_t *hooks = NULL;
-
 static void
 mybhk_post_end (pTHX_ OP **o)
 {
+  dMY_CXT;
   hook_t *h;
 
-  for (h = hooks; h;) {
+  for (h = MY_CXT.hooks; h;) {
     hook_t *next_h = h->next;
 
     if (h->level > 0)
@@ -73,9 +80,9 @@ mybhk_post_end (pTHX_ OP **o)
         h->next->prev = h->prev;
       }
       else {
-        hooks = h->next;
-        if (hooks)
-          hooks->prev = NULL;
+        MY_CXT.hooks = h->next;
+        if (MY_CXT.hooks)
+          MY_CXT.hooks->prev = NULL;
       }
       free(h);
 
@@ -89,12 +96,13 @@ mybhk_post_end (pTHX_ OP **o)
 static void
 mybhk_start (pTHX_ int full)
 {
+  dMY_CXT;
   hook_t *h;
 
   if (!full)
     return;
 
-  for (h = hooks; h; h = h->next)
+  for (h = MY_CXT.hooks; h; h = h->next)
     h->level++;
 }
 
@@ -105,18 +113,22 @@ MODULE = Hook::EndOfRuntime  PACKAGE = Hook::EndOfRuntime
 void
 after_runtime (UV level, SV *cb)
   PREINIT:
+    dMY_CXT;
     hook_t *hook;
   CODE:
     hook = malloc(sizeof(hook_t));
     hook->level = level;
     hook->cb = newSVsv(cb);
     hook->prev = NULL;
-    hook->next = hooks;
-    if (hooks)
-      hooks->prev = hook;
-    hooks = hook;
+    hook->next = MY_CXT.hooks;
+    if (MY_CXT.hooks)
+      MY_CXT.hooks->prev = hook;
+    MY_CXT.hooks = hook;
 
 BOOT:
   BhkENTRY_set(&bhk_hooks, bhk_post_end, mybhk_post_end);
   BhkENTRY_set(&bhk_hooks, bhk_start, mybhk_start);
   Perl_blockhook_register(aTHX_ &bhk_hooks);
+
+  MY_CXT_INIT;
+  MY_CXT.hooks = NULL;
